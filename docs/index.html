@@ -47,7 +47,7 @@ select{flex:1;min-width:140px;background:var(--card);color:var(--ink);border:1px
 .d-gray{background:rgba(138,160,171,.15);color:var(--muted)}
 .rowbtns{display:flex;gap:6px;flex:0 0 auto}
 .ib{border:1px solid var(--line);background:var(--card2);color:var(--ink);border-radius:8px;padding:7px 9px;font-size:12px;cursor:pointer}
-.ib.used{border-color:#3a5a3a}.ib.del{border-color:#5a3a3a;color:var(--red)}
+.ib.use{border-color:#3a5a3a;color:var(--green)}.ib.del{border-color:#5a3a3a;color:var(--red)}
 .empty{color:var(--muted);text-align:center;padding:30px 10px}
 #fab{position:fixed;right:18px;bottom:calc(18px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;background:var(--accent);color:#06222b;border:none;font-size:30px;line-height:1;box-shadow:0 6px 18px rgba(0,0,0,.4);cursor:pointer;z-index:20}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:flex-end;justify-content:center;z-index:30}
@@ -160,6 +160,24 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
   <div class="sheet">
     <h2 id="scanTitle">Scan</h2>
     <div id="scanBody"></div>
+  </div>
+</div>
+
+<!-- partial use -->
+<div class="modal" id="useModal">
+  <div class="sheet">
+    <h2 id="useTitle">Use item</h2>
+    <p class="sub" id="useSub" style="margin:0 0 10px"></p>
+    <label>Amount used</label>
+    <div class="two">
+      <div><input id="useQty" type="number" step="any" min="0"></div>
+      <div style="display:flex;align-items:center;color:var(--muted)" id="useUnitLbl"></div>
+    </div>
+    <p style="color:var(--muted);font-size:12px;margin-top:8px">Using the full amount removes it from your pantry. Using less just lowers the count. Either way it's logged to your usage history.</p>
+    <div class="savebtns">
+      <button class="btn ghost" id="useCancel">Cancel</button>
+      <button class="btn primary" id="useApply">Log usage</button>
+    </div>
   </div>
 </div>
 

@@ -105,8 +105,9 @@
         esc(x.quantity != null ? x.quantity : "") + " " + esc(x.unit || "") +
         (x.category ? " · " + esc(x.category) : "") + "</div></div>" +
         pill(daysLeft(x.expiration)) +
-        '<div class="rowbtns"><button class="ib used" data-act="used">Used</button>' +
-        '<button class="ib del" data-act="del">✕</button></div></div>';
+        '<div class="rowbtns"><button class="ib" data-act="edit" title="Edit">✎</button>' +
+        '<button class="ib use" data-act="use">Use</button>' +
+        '<button class="ib del" data-act="del" title="Delete">✕</button></div></div>';
     }).join("");
   }
 
@@ -125,8 +126,9 @@
     if (!row) return;
     var it = items.filter(function (x) { return String(x.id) === row.dataset.id; })[0];
     if (!it) return;
-    if (btn && btn.dataset.act === "used") { if (confirm('Mark "' + it.item + '" as used up? It will be logged and removed.')) removeItem(it, true); }
-    else if (btn && btn.dataset.act === "del") { if (confirm('Delete "' + it.item + '"?')) removeItem(it, false); }
+    if (btn && btn.dataset.act === "use") openUse(it);
+    else if (btn && btn.dataset.act === "edit") openForm(it);
+    else if (btn && btn.dataset.act === "del") { if (confirm('Delete "' + it.item + '"? (No usage logged.)')) removeItem(it, false); }
     else openForm(it);
   });
 
@@ -194,6 +196,32 @@
     var id = $("fId").value;
     if (!id) rec.source = "Manual";
     save(rec, id || null).then(closeForm);
+  });
+
+  /* ---------- partial "use" ---------- */
+  var useItem = null;
+  function openUse(it) {
+    useItem = it;
+    var q = it.quantity != null ? it.quantity : 1;
+    $("useTitle").textContent = 'Use "' + it.item + '"';
+    $("useSub").textContent = "In stock: " + q + " " + (it.unit || "");
+    $("useQty").value = q;
+    $("useUnitLbl").textContent = it.unit || "";
+    $("useModal").classList.add("open");
+  }
+  function closeUse() { $("useModal").classList.remove("open"); useItem = null; }
+  $("useCancel").addEventListener("click", closeUse);
+  $("useModal").addEventListener("click", function (e) { if (e.target === $("useModal")) closeUse(); });
+  $("useApply").addEventListener("click", function () {
+    if (!useItem || !db) { closeUse(); return; }
+    var it = useItem, have = it.quantity != null ? Number(it.quantity) : 1, used = Number($("useQty").value);
+    if (isNaN(used) || used <= 0) { closeUse(); return; }
+    db.from("used_log").insert({ item: it.item, quantity_used: used + " " + (it.unit || ""), reason: "Used in app" })
+      .then(function () {
+        if (used >= have) return db.from("items").delete().eq("id", it.id);
+        return db.from("items").update({ quantity: have - used }).eq("id", it.id);
+      })
+      .then(function (res) { if (res && res.error) alert("Update failed: " + res.error.message); closeUse(); load(); });
   });
 
   /* ---------- image compression ---------- */
