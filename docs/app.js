@@ -243,24 +243,51 @@
 
   /* ---------- scan / reconcile ---------- */
   var MAX_FRAMES = 8;
-  function startScan(mode) { pendingMode = mode; closeMenu(); $("scanFile").value = ""; $("scanFile").click(); }
+  var staged = [];
+  function startScan(mode) {
+    pendingMode = mode; staged = [];
+    closeMenu();
+    openScan(mode === "receipt" ? "Scan receipt" : "Reconcile shelf");
+    renderStaging();
+  }
+  function renderStaging() {
+    var noun = pendingMode === "receipt" ? "receipt" : "pantry";
+    var head = staged.length
+      ? '<div class="stage">' + staged.map(function (d, i) { return '<div class="sthumb"><img src="' + d + '"><button class="srm" data-rm="' + i + '">✕</button></div>'; }).join("") + "</div>"
+      : '<p style="color:var(--muted);font-size:13px;margin:0 0 4px">Add one or more photos' + (pendingMode === "receipt" ? "" : " (or a short video)") + " of your " + noun + ". Snap several shelves, then analyze them together.</p>";
+    var goLabel = staged.length ? "Analyze " + staged.length + " image" + (staged.length > 1 ? "s" : "") : "Analyze";
+    $("scanBody").innerHTML = head +
+      '<button class="btn ghost" id="stageAdd" style="margin-top:12px">➕ Add ' + (staged.length ? "more" : "photos") + (pendingMode === "receipt" ? "" : " / video") + "</button>" +
+      '<div class="savebtns"><button class="btn ghost" id="scanCancel">Cancel</button>' +
+      '<button class="btn primary" id="stageGo"' + (staged.length ? "" : " disabled") + ">" + goLabel + "</button></div>";
+    $("stageAdd").onclick = function () { $("scanFile").click(); };
+    $("scanCancel").onclick = closeScan;
+    if (staged.length) $("stageGo").onclick = runAnalyze;
+    Array.prototype.forEach.call(document.querySelectorAll("#scanBody [data-rm]"), function (b) {
+      b.onclick = function () { staged.splice(Number(b.dataset.rm), 1); renderStaging(); };
+    });
+  }
   $("scanFile").addEventListener("change", function () {
     var files = this.files ? Array.prototype.slice.call(this.files) : [];
+    this.value = "";
     if (!files.length || !pendingMode) return;
-    var mode = pendingMode; pendingMode = null;
-    openScan(mode === "receipt" ? "Scan receipt" : "Reconcile shelf");
-    scanSpinner(mode === "receipt" ? "Reading your receipt…" : "Pulling frames & looking…");
-    collectImages(files, function (images) {
-      if (!images.length) { scanError("Couldn't read that file. Try one or more photos, or a short video."); return; }
-      if (images.length > MAX_FRAMES) images = images.slice(0, MAX_FRAMES);
-      scanSpinner("Analyzing " + images.length + " image" + (images.length > 1 ? "s" : "") + "…");
-      callScan(mode, images, function (err, res) {
-        if (err) { scanError("Couldn't reach the scanner. Is the Edge Function deployed? (see SCAN-SETUP.md) " + err.message); return; }
-        if (!res.ok || (res.j && res.j.error)) { scanError(scanErrMsg(res.j)); return; }
-        if (mode === "receipt") reviewReceipt(res.j); else reviewReconcile(res.j);
-      });
+    scanSpinner("Processing photos…");
+    collectImages(files, function (imgs) {
+      staged = staged.concat(imgs);
+      if (staged.length > MAX_FRAMES) staged = staged.slice(0, MAX_FRAMES);
+      renderStaging();
     });
   });
+  function runAnalyze() {
+    if (!staged.length || !pendingMode) return;
+    var mode = pendingMode;
+    scanSpinner("Analyzing " + staged.length + " image" + (staged.length > 1 ? "s" : "") + "…");
+    callScan(mode, staged.slice(), function (err, res) {
+      if (err) { scanError("Couldn't reach the scanner. Is the Edge Function deployed? (see SCAN-SETUP.md) " + err.message); return; }
+      if (!res.ok || (res.j && res.j.error)) { scanError(scanErrMsg(res.j)); return; }
+      if (mode === "receipt") reviewReceipt(res.j); else reviewReconcile(res.j);
+    });
+  }
   // Turn the selected files (photos and/or a video) into a list of base64 images.
   function collectImages(files, done) {
     var out = [], i = 0;
@@ -375,7 +402,7 @@
   }
 
   function openScan(title) { $("scanTitle").textContent = title; $("scanModal").classList.add("open"); }
-  function closeScan() { $("scanModal").classList.remove("open"); scanCurrent = null; }
+  function closeScan() { $("scanModal").classList.remove("open"); scanCurrent = null; staged = []; }
   function scanSpinner(msg) { $("scanBody").innerHTML = '<div class="spinner"><div class="spin"></div><div>' + esc(msg) + "</div></div>"; }
   function scanError(msg) { $("scanBody").innerHTML = '<p style="color:var(--red);font-size:14px">⚠️ ' + esc(msg) + '</p><div class="savebtns"><button class="btn ghost" id="scanCancel">Close</button></div>'; $("scanCancel").onclick = closeScan; }
   function scanInfo(msg) { $("scanBody").innerHTML = '<p style="font-size:14px">' + esc(msg) + '</p><div class="savebtns"><button class="btn ghost" id="scanCancel">Close</button></div>'; $("scanCancel").onclick = closeScan; }
