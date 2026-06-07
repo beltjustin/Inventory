@@ -13,6 +13,8 @@
   var locFilter = "";
   var scanCurrent = null;
   var pendingMode = null;
+  var useItem = null;
+  var photoData = null;
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -159,7 +161,6 @@
   $("mReconcile").addEventListener("click", function () { startScan("reconcile"); });
 
   /* ---------- add / edit form ---------- */
-  var photoData = null;
   function openForm(it) {
     photoData = it && it.photo || null;
     $("mTitle").textContent = it ? "Edit item" : "Add item";
@@ -199,7 +200,6 @@
   });
 
   /* ---------- partial "use" ---------- */
-  var useItem = null;
   function openUse(it) {
     useItem = it;
     var q = it.quantity != null ? it.quantity : 1;
@@ -345,6 +345,6 @@
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(function () {});
   load();
 
-  // expose a few internals for the automated smoke test (no-op in normal use)
-  window.__pantry = { reviewReceipt: reviewReceipt, reviewReconcile: reviewReconcile, getItems: function () { return items; }, setItems: function (v) { items = v; } };
+  // exposed for the automated smoke test (harmless in normal use)
+  window.__pantry = { reviewReceipt: reviewReceipt, reviewReconcile: reviewReconcile, openUse: openUse, getItems: function () { return items; }, setItems: function (v) { items = v; } };
 })();
