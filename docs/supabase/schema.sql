@@ -9,6 +9,7 @@ create table if not exists items (
   quantity     numeric default 1,
   unit         text,
   location     text default 'Pantry',          -- Pantry | Fridge | Freezer
+  place        text default 'Home',             -- separate inventory: Home | RV | Lake House…
   date_added   date default current_date,
   expiration   date,
   status       text default 'In Stock',         -- In Stock | Low | Out
@@ -26,11 +27,13 @@ create table if not exists used_log (
   quantity_used text,
   reason        text,
   notes         text,
+  place         text default 'Home',
   created_at    timestamptz default now()
 );
 
 create index if not exists items_expiration_idx on items (expiration);
 create index if not exists items_category_idx  on items (category);
+create index if not exists items_place_idx      on items (place);
 
 -- keep updated_at fresh
 create or replace function set_updated_at() returns trigger as $$

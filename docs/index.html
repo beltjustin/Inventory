@@ -15,6 +15,7 @@ html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui
 body{padding:16px 16px calc(90px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
 h1{font-size:21px;margin:0}
 .sub{color:var(--muted);font-size:12px;margin:2px 0 14px}
+.placesel{width:100%;background:var(--card2);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font-size:15px;font-weight:600;margin-bottom:12px}
 #banner{background:#3a2a1a;border:1px solid #7a5a2a;color:#f0d9b0;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px;display:none}
 .search{width:100%;padding:15px 16px;font-size:17px;background:var(--card);border:1px solid var(--line);border-radius:12px;color:var(--ink)}
 .search:focus{outline:none;border-color:var(--accent)}
@@ -91,6 +92,7 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
   <div><h1>🧺 Pantry Inventory</h1><div class="sub" id="sub">Loading…</div></div>
   <a class="link" id="reload">↻ Refresh</a>
 </div>
+<select id="placeSel" class="placesel" title="Which inventory"></select>
 <div id="banner"></div>
 
 <input id="q" class="search" placeholder="Do I have… ?  (taco shells, cholula, beans…)" autocomplete="off">
@@ -144,6 +146,8 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
     </div>
     <label>Category</label><input id="fCat" list="catlist" placeholder="Snacks, Canned Goods…">
     <datalist id="catlist"></datalist>
+    <label>List / place</label><input id="fPlace" list="placelist" placeholder="Home, RV, Lake House…">
+    <datalist id="placelist"></datalist>
     <div class="two">
       <div><label>Location</label><select id="fLoc"><option>Pantry</option><option>Fridge</option><option>Freezer</option></select></div>
       <div><label>Status</label><select id="fStatus"><option>In Stock</option><option>Low</option><option>Out</option></select></div>

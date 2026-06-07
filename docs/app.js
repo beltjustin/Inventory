@@ -9,8 +9,10 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var items = [];
+  var view = [];
   var tab = "all";
   var locFilter = "";
+  var activePlace = (function () { try { return localStorage.getItem("pantry_place") || "Home"; } catch (e) { return "Home"; } })();
   var scanCurrent = null;
   var pendingMode = null;
   var useItem = null;
@@ -62,13 +64,35 @@
       .then(function (res) { if (res && res.error) alert("Delete failed: " + res.error.message); load(); });
   }
 
+  /* ---------- places (separate inventories: Home, RV, Lake House…) ---------- */
+  function allPlaces() {
+    var p = []; items.forEach(function (x) { var pl = x.place || "Home"; if (p.indexOf(pl) < 0) p.push(pl); });
+    if (p.indexOf(activePlace) < 0) p.push(activePlace);
+    return p.sort();
+  }
+  function renderPlaces() {
+    $("placeSel").innerHTML = allPlaces().map(function (p) {
+      return '<option value="' + esc(p) + '"' + (p === activePlace ? " selected" : "") + ">📍 " + esc(p) + "</option>";
+    }).join("") + '<option value="__new__">➕ New list…</option>';
+  }
+  $("placeSel").addEventListener("change", function () {
+    if (this.value === "__new__") {
+      var name = prompt("Name this inventory (e.g. RV, Lake House):");
+      if (name && name.trim()) activePlace = name.trim();
+    } else { activePlace = this.value; }
+    try { localStorage.setItem("pantry_place", activePlace); } catch (e) {}
+    render();
+  });
+
   /* ---------- render ---------- */
   function render() {
-    var n = items.length;
-    $("sub").textContent = n + " items" + (configured ? " · synced" : " · offline");
-    var exp = items.filter(function (x) { var d = daysLeft(x.expiration); return d !== null && d < 30; }).length;
-    var low = items.filter(function (x) { return x.status === "Low" || x.status === "Out"; }).length;
-    var cats = {}; items.forEach(function (x) { if (x.category) cats[x.category] = 1; });
+    renderPlaces();
+    view = items.filter(function (x) { return (x.place || "Home") === activePlace; });
+    var n = view.length;
+    $("sub").textContent = n + " item" + (n === 1 ? "" : "s") + " in " + activePlace + (configured ? " · synced" : " · offline");
+    var exp = view.filter(function (x) { var d = daysLeft(x.expiration); return d !== null && d < 30; }).length;
+    var low = view.filter(function (x) { return x.status === "Low" || x.status === "Out"; }).length;
+    var cats = {}; view.forEach(function (x) { if (x.category) cats[x.category] = 1; });
     $("cards").innerHTML = card(n, "Items") + card(exp, "Exp &lt;30d") + card(low, "Low/out") + card(Object.keys(cats).length, "Categories");
     fillFilter("fcat", "category", "All categories");
     fillFilter("fstatus", "status", "All statuses");
@@ -78,18 +102,19 @@
   function card(v, l) { return '<div class="card"><div class="n">' + v + '</div><div class="l">' + l + "</div></div>"; }
   function fillFilter(id, key, label) {
     var el = $(id), cur = el.value, vals = [];
-    items.forEach(function (x) { if (x[key] && vals.indexOf(x[key]) < 0) vals.push(x[key]); });
+    view.forEach(function (x) { if (x[key] && vals.indexOf(x[key]) < 0) vals.push(x[key]); });
     vals.sort();
     el.innerHTML = '<option value="">' + label + "</option>" + vals.map(function (v) { return "<option>" + esc(v) + "</option>"; }).join("");
     if (vals.indexOf(cur) >= 0) el.value = cur;
   }
   function fillDatalist() {
-    var vals = []; items.forEach(function (x) { if (x.category && vals.indexOf(x.category) < 0) vals.push(x.category); });
+    var vals = []; view.forEach(function (x) { if (x.category && vals.indexOf(x.category) < 0) vals.push(x.category); });
     $("catlist").innerHTML = vals.sort().map(function (v) { return "<option value='" + esc(v) + "'>"; }).join("");
+    $("placelist").innerHTML = allPlaces().map(function (p) { return "<option value='" + esc(p) + "'>"; }).join("");
   }
   function renderList() {
     var c = $("fcat").value, s = $("fstatus").value;
-    var rows = items.filter(function (x) {
+    var rows = view.filter(function (x) {
       return (!c || x.category === c) && (!locFilter || x.location === locFilter) && (!s || x.status === s);
     });
     if (tab === "expiring") rows = rows.filter(function (x) { var d = daysLeft(x.expiration); return d !== null && d < 30; });
@@ -117,7 +142,7 @@
   $("q").addEventListener("input", function () {
     var t = this.value.trim().toLowerCase(), a = $("answer");
     if (!t) { a.innerHTML = ""; return; }
-    var m = items.filter(function (x) { return (x.item || "").toLowerCase().indexOf(t) >= 0 || (x.category || "").toLowerCase().indexOf(t) >= 0; });
+    var m = view.filter(function (x) { return (x.item || "").toLowerCase().indexOf(t) >= 0 || (x.category || "").toLowerCase().indexOf(t) >= 0; });
     if (m.length) a.innerHTML = '<span class="have">✓ Yes</span> — ' + m.map(function (x) { return esc(x.item) + " (" + esc(x.quantity != null ? x.quantity : "") + " " + esc(x.unit || "") + ", " + esc(x.location || "") + ")"; }).join(", ");
     else a.innerHTML = '<span class="havent">✗ No</span> — "' + esc(this.value.trim()) + '" isn\'t in your pantry.';
   });
@@ -171,6 +196,7 @@
     $("fCat").value = it ? it.category || "" : "";
     $("fLoc").value = it ? validLoc(it.location) : "Pantry";
     $("fStatus").value = it ? it.status || "In Stock" : "In Stock";
+    $("fPlace").value = it ? (it.place || activePlace) : activePlace;
     $("fExp").value = it ? it.expiration || "" : "";
     $("fNotes").value = it ? it.notes || "" : "";
     var p = $("photoPrev");
@@ -191,7 +217,7 @@
     var rec = {
       item: name, quantity: $("fQty").value === "" ? null : Number($("fQty").value),
       unit: $("fUnit").value.trim(), category: $("fCat").value.trim(),
-      location: $("fLoc").value, status: $("fStatus").value,
+      location: $("fLoc").value, status: $("fStatus").value, place: $("fPlace").value.trim() || activePlace,
       expiration: $("fExp").value || null, notes: $("fNotes").value.trim(), photo: photoData || null
     };
     var id = $("fId").value;
@@ -331,7 +357,7 @@
     if (!configured) { cb(new Error("Not configured.")); return; }
     var url = SBURL + "/functions/v1/scan";
     var body = { mode: mode, images: Array.isArray(images) ? images : [images] };
-    if (mode === "reconcile") body.inventory = items.map(function (x) {
+    if (mode === "reconcile") body.inventory = view.map(function (x) {
       return { id: x.id, item: x.item, category: x.category, quantity: x.quantity, unit: x.unit, location: x.location, expiration: x.expiration };
     });
     fetch(url, {
@@ -372,7 +398,7 @@
   function applyReceipt() {
     var recs = [];
     scanCurrent.items.forEach(function (x, i) {
-      if (isChecked(i)) recs.push({ item: x.item, category: x.category || "", quantity: numOr(x.quantity, 1), unit: x.unit || "", location: validLoc(x.location), status: "In Stock", expiration: x.expiration || null, notes: x.notes || "", source: "Receipt" });
+      if (isChecked(i)) recs.push({ item: x.item, category: x.category || "", quantity: numOr(x.quantity, 1), unit: x.unit || "", location: validLoc(x.location), status: "In Stock", expiration: x.expiration || null, notes: x.notes || "", place: activePlace, source: "Receipt" });
     });
     if (!recs.length) { closeScan(); return; }
     scanSpinner("Adding " + recs.length + " item(s)…");
@@ -391,7 +417,7 @@
   }
   function applyReconcile() {
     var ops = [];
-    scanCurrent.add.forEach(function (x, i) { if (isChecked("a" + i)) ops.push(function () { return db.from("items").insert([{ item: x.item, category: x.category || "", quantity: numOr(x.quantity, 1), unit: x.unit || "", location: validLoc(x.location), status: "In Stock", expiration: x.expiration || null, notes: x.notes || "", source: "Photo" }]); }); });
+    scanCurrent.add.forEach(function (x, i) { if (isChecked("a" + i)) ops.push(function () { return db.from("items").insert([{ item: x.item, category: x.category || "", quantity: numOr(x.quantity, 1), unit: x.unit || "", location: validLoc(x.location), status: "In Stock", expiration: x.expiration || null, notes: x.notes || "", place: activePlace, source: "Photo" }]); }); });
     scanCurrent.changed.forEach(function (x, i) { if (isChecked("c" + i) && x.id) ops.push(function () { return db.from("items").update({ quantity: numOr(x.quantity, 1) }).eq("id", x.id); }); });
     scanCurrent.missing.forEach(function (x, i) { if (isChecked("m" + i) && x.id) { ops.push(function () { return db.from("used_log").insert([{ item: x.item, quantity_used: "", reason: "Reconcile: not visible in photo" }]); }); ops.push(function () { return db.from("items").delete().eq("id", x.id); }); } });
     if (!ops.length) { closeScan(); return; }

@@ -25,6 +25,7 @@ A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supa
 
 ## App features
 
+- **Multiple inventories (lists):** a top switcher toggles between separate places (Home, RV, Lake House…). Search, filters, stats, adds, scans, and reconcile all scope to the active list. Backed by a `place` column on `items`/`used_log`; the active list persists in `localStorage` (`pantry_place`). For an existing DB, run `docs/supabase/migrate-places.sql` once to add the column (existing rows default to `Home`).
 - "Do I have…?" instant search.
 - Item list: **Pantry / Fridge / Freezer** quick-filter buttons + colored location tags; category & status dropdown filters; All / Expiring-soon tabs; red/yellow/green expiration pills.
 - **+ menu:** Add manually · Scan a receipt · Reconcile a shelf.
