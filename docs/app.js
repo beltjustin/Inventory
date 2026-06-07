@@ -67,9 +67,14 @@
       if (!email) { emailInput.focus(); return; }
       sendBtn.disabled = true;
       sendBtn.textContent = "Sending…";
+      // Preserve any pending invite token through the redirect
+      var pendingInvite = getInviteParam() || popInviteToken();
+      if (pendingInvite) storeInviteToken(pendingInvite);
+      var redirectTo = window.location.origin + window.location.pathname;
+      if (pendingInvite) redirectTo += "?invite=" + encodeURIComponent(pendingInvite);
       db.auth.signInWithOtp({
         email: email,
-        options: { emailRedirectTo: window.location.origin + window.location.pathname }
+        options: { emailRedirectTo: redirectTo }
       }).then(function (res) {
         if (res.error) {
           sendBtn.disabled = false;
@@ -104,6 +109,33 @@
     e.preventDefault();
     if (db) db.auth.signOut();
   });
+
+  /* ---- invite token handling ---- */
+  // Read ?invite=<token> from URL and persist it through the magic-link redirect.
+  function getInviteParam() {
+    try {
+      return new URLSearchParams(window.location.search).get("invite");
+    } catch (e) { return null; }
+  }
+  function storeInviteToken(token) {
+    try { localStorage.setItem("pantry_pending_invite", token); } catch (e) {}
+  }
+  function popInviteToken() {
+    try {
+      var t = localStorage.getItem("pantry_pending_invite");
+      localStorage.removeItem("pantry_pending_invite");
+      return t;
+    } catch (e) { return null; }
+  }
+
+  // Strip invite param from the URL without a page reload.
+  function clearInviteParam() {
+    try {
+      var url = new URL(window.location.href);
+      url.searchParams.delete("invite");
+      window.history.replaceState({}, "", url.toString());
+    } catch (e) {}
+  }
 
   /* ---- auth init ---- */
   function initAuth() {
@@ -146,12 +178,32 @@
   function initApp() {
     showApp();
     $("sub").textContent = "Setting up…";
+    // Check for a pending invite token (from URL or localStorage)
+    var inviteToken = getInviteParam() || popInviteToken();
+    if (inviteToken) clearInviteParam();
     ensureMigrated()
+      .then(function () {
+        if (inviteToken) return acceptInvite(inviteToken);
+      })
       .then(loadLists)
       .then(function () { load(); })
       .catch(function (e) {
         banner("⚠️ Setup error: " + esc(e.message));
         load();
+      });
+  }
+
+  /* ---- invite acceptance ---- */
+  function acceptInvite(token) {
+    return db.rpc("accept_invite", { p_token: token })
+      .then(function (res) {
+        if (res.error) {
+          // Already a member or expired — not fatal, just move on
+          console.warn("Invite accept:", res.error.message);
+        } else {
+          banner("✅ You've joined the household! All shared lists are now in your switcher.");
+          setTimeout(function () { banner(""); }, 4000);
+        }
       });
   }
 
@@ -795,6 +847,95 @@
     var c = $("scanCancel"), a = $("scanApply");
     if (c) c.onclick = closeScan;
     if (a) a.onclick = function () { scanCurrent.type === "receipt" ? applyReceipt() : applyReconcile(); };
+  }
+
+  /* ---- household management modal ---- */
+  $("manageBtn").addEventListener("click", function (e) {
+    e.preventDefault();
+    openManage();
+  });
+  $("manageClose").addEventListener("click", function () { $("manageModal").classList.remove("open"); });
+  $("manageModal").addEventListener("click", function (e) { if (e.target === $("manageModal")) $("manageModal").classList.remove("open"); });
+
+  function openManage() {
+    $("manageModal").classList.add("open");
+    $("manageBody").innerHTML = '<div class="spinner"><div class="spin"></div><div>Loading…</div></div>';
+    if (!db || !currentUser || !activeListId) return;
+    var hid = currentHouseholdId();
+    if (!hid) return;
+    db.rpc("get_household_members", { p_household_id: hid })
+      .then(function (res) {
+        if (res.error) { $("manageBody").innerHTML = '<p style="color:var(--red)">Error: ' + esc(res.error.message) + "</p>"; return; }
+        renderManage(hid, res.data || []);
+      });
+  }
+
+  function renderManage(hid, members) {
+    var html = '<label style="margin-top:0">Members</label>';
+    html += '<div style="margin-bottom:16px">';
+    members.forEach(function (m) {
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)">' +
+        '<div><div style="font-weight:600">' + esc(m.display_name || m.email) + '</div>' +
+        '<div style="font-size:12px;color:var(--muted)">' + esc(m.role) + (m.is_self ? " · you" : "") + '</div></div>' +
+        ((!m.is_self) ? '<button class="ib del" data-remove="' + esc(m.user_id) + '" title="Remove">✕</button>' : '') +
+        '</div>';
+    });
+    html += '</div>';
+
+    html += '<label>Invite someone</label>' +
+      '<button class="btn primary" id="genInviteBtn" style="margin-top:4px">🔗 Generate invite link</button>' +
+      '<div id="inviteLinkWrap" style="margin-top:12px;display:none">' +
+        '<input id="inviteLinkInput" readonly style="font-size:13px;padding:10px">' +
+        '<button class="btn ghost" id="copyInviteBtn" style="margin-top:8px">Copy link</button>' +
+        '<p style="color:var(--muted);font-size:12px;margin:8px 0 0">Share via iMessage, email, or any app. Link expires in 7 days — anyone with it can join this household.</p>' +
+      '</div>';
+
+    $("manageBody").innerHTML = html;
+
+    // Remove member buttons
+    Array.prototype.forEach.call(document.querySelectorAll("[data-remove]"), function (btn) {
+      btn.addEventListener("click", function () {
+        var uid = btn.dataset.remove;
+        if (!confirm("Remove this member from the household?")) return;
+        db.from("household_members").delete().eq("household_id", hid).eq("user_id", uid)
+          .then(function (res) {
+            if (res.error) alert("Couldn't remove: " + res.error.message);
+            else openManage();
+          });
+      });
+    });
+
+    // Generate invite link
+    $("genInviteBtn").addEventListener("click", function () {
+      $("genInviteBtn").disabled = true;
+      $("genInviteBtn").textContent = "Generating…";
+      db.from("invites").insert({ household_id: hid, invited_by: currentUser.id }).select("token").single()
+        .then(function (res) {
+          $("genInviteBtn").disabled = false;
+          $("genInviteBtn").textContent = "🔗 Generate new link";
+          if (res.error) { alert("Error: " + res.error.message); return; }
+          var link = window.location.origin + window.location.pathname + "?invite=" + encodeURIComponent(res.data.token);
+          $("inviteLinkInput").value = link;
+          $("inviteLinkWrap").style.display = "";
+        });
+    });
+
+    // Copy to clipboard
+    $("copyInviteBtn").addEventListener("click", function () {
+      var val = $("inviteLinkInput").value;
+      if (!val) return;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(val).then(function () {
+          $("copyInviteBtn").textContent = "Copied!";
+          setTimeout(function () { $("copyInviteBtn").textContent = "Copy link"; }, 2000);
+        });
+      } else {
+        $("inviteLinkInput").select();
+        document.execCommand("copy");
+        $("copyInviteBtn").textContent = "Copied!";
+        setTimeout(function () { $("copyInviteBtn").textContent = "Copy link"; }, 2000);
+      }
+    });
   }
 
   /* ---- boot ---- */

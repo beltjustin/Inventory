@@ -2,7 +2,7 @@
 
 Personal pantry inventory system for Justin. Goal: always know what's at home ("do I have taco shells?"), track expiration dates, add items from receipts/photos/video, and reconcile the database against the physical pantry. Built in Cowork mode.
 
-**Long-term direction:** evolve into a public, multi-user app (family households share lists; magic-link auth; operator-paid scanning with per-user limits). Full design + phased roadmap in `PUBLIC-APP-PLAN.md`. The app is now in **Phase 1** (Accounts & lockdown) on the `phase-1` git branch — Supabase Auth is wired in, RLS is per-user/household, and the `place` text column is being migrated to a proper `list_id` FK.
+**Long-term direction:** evolve into a public, multi-user app (family households share lists; magic-link auth; operator-paid scanning with per-user limits). Full design + phased roadmap in `PUBLIC-APP-PLAN.md`. The app is now in **Phase 2** (Sharing) — Phase 1 auth/RLS is live on main; Phase 2 adds shareable invite links, household member management, and invite acceptance on sign-in.
 
 ## The live product
 
@@ -21,6 +21,7 @@ A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supa
   - `supabase/schema.sql`, `supabase/seed.sql`, `supabase/migrate-places.sql`
   - `supabase/phase1-schema.sql` — Phase 1 DB additions (profiles, households, lists, new RLS)
   - `supabase/phase1-migrate.sql` — one-time data migration script (run after first login)
+  - `supabase/phase2-schema.sql` — Phase 2 DB additions (invites table + SQL functions)
   - `supabase/functions/scan/index.ts` — vision Edge Function
   - `DEPLOY-GUIDE.md`, `DEPLOY-GitHub-Pages.md`, `SCAN-SETUP.md`
 - `PUBLIC-APP-PLAN.md` — architecture + phased roadmap for the public multi-user version.

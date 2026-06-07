@@ -131,6 +131,7 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
   <div><h1>🧺 Pantry Inventory</h1><div class="sub" id="sub">Loading…</div></div>
   <div style="display:flex;gap:12px;align-items:center">
     <a class="link" id="reload">↻ Refresh</a>
+    <a class="link" id="manageBtn">⚙️ Manage</a>
     <a class="link" id="signOutBtn" title="Sign out">Sign out</a>
   </div>
 </div>
@@ -232,6 +233,15 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
 </div>
 
 <input type="file" id="scanFile" accept="image/*,video/*" multiple style="display:none">
+
+<!-- household management modal -->
+<div class="modal" id="manageModal">
+  <div class="sheet">
+    <h2>Household</h2>
+    <div id="manageBody"><div class="spinner"><div class="spin"></div><div>Loading…</div></div></div>
+    <div class="savebtns"><button class="btn ghost" id="manageClose">Close</button></div>
+  </div>
+</div>
 
 </div><!-- /appScreen -->
 
