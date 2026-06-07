@@ -85,12 +85,54 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
 .sthumb img{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 .srm{position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;border:none;background:var(--red);color:#fff;font-size:11px;line-height:1;cursor:pointer}
 .btn:disabled{opacity:.45;cursor:default}
+/* login screen */
+.login-wrap{max-width:380px;margin:60px auto 0;padding:0 4px}
+.login-wrap h1{font-size:28px;margin:0 0 4px}
+.login-icon{font-size:48px;line-height:1;margin-bottom:16px}
+.login-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px}
+.login-card input{margin-bottom:0}
+.login-hint{color:var(--muted);font-size:12px;text-align:center;margin:10px 0 0}
+.login-sent{text-align:center;padding:8px 0}
+.login-sent .bigicon{font-size:44px;line-height:1;margin-bottom:14px}
+.login-sent p{margin:0 0 8px}
 </style>
 </head>
 <body>
+
+<!-- ═══ LOGIN SCREEN ═══ -->
+<div id="loginScreen" style="display:none">
+  <div class="login-wrap">
+    <div class="login-icon">🧺</div>
+    <h1>Pantry Inventory</h1>
+    <p class="sub" style="margin-bottom:28px">Your personal pantry, always in your pocket.</p>
+
+    <div class="login-card">
+      <div id="loginForm">
+        <label>Email address</label>
+        <input id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+        <button class="btn primary" id="loginSend" style="width:100%;margin-top:14px;flex:unset">Send magic link</button>
+        <p class="login-hint">No password needed — we'll email you a one-click sign-in link.</p>
+      </div>
+
+      <div id="loginSent" style="display:none" class="login-sent">
+        <div class="bigicon">📬</div>
+        <p style="font-weight:600;font-size:16px">Check your inbox</p>
+        <p style="color:var(--muted);font-size:13px">Click the link we sent to sign in. It expires in 1 hour.</p>
+        <a href="#" id="loginRetry" class="link" style="font-size:13px">Try a different email</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ APP SCREEN ═══ -->
+<div id="appScreen" style="display:none">
+
 <div class="hintrow">
   <div><h1>🧺 Pantry Inventory</h1><div class="sub" id="sub">Loading…</div></div>
-  <a class="link" id="reload">↻ Refresh</a>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a class="link" id="reload">↻ Refresh</a>
+    <a class="link" id="signOutBtn" title="Sign out">Sign out</a>
+  </div>
 </div>
 <select id="placeSel" class="placesel" title="Which inventory"></select>
 <div id="banner"></div>
@@ -146,8 +188,7 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
     </div>
     <label>Category</label><input id="fCat" list="catlist" placeholder="Snacks, Canned Goods…">
     <datalist id="catlist"></datalist>
-    <label>List / place</label><input id="fPlace" list="placelist" placeholder="Home, RV, Lake House…">
-    <datalist id="placelist"></datalist>
+    <label>List</label><select id="fList"></select>
     <div class="two">
       <div><label>Location</label><select id="fLoc"><option>Pantry</option><option>Fridge</option><option>Freezer</option></select></div>
       <div><label>Status</label><select id="fStatus"><option>In Stock</option><option>Low</option><option>Out</option></select></div>
@@ -191,6 +232,8 @@ a.link{color:var(--accent);font-size:12px;text-decoration:none;cursor:pointer}
 </div>
 
 <input type="file" id="scanFile" accept="image/*,video/*" multiple style="display:none">
+
+</div><!-- /appScreen -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="config.js"></script>

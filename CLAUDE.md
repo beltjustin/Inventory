@@ -2,22 +2,25 @@
 
 Personal pantry inventory system for Justin. Goal: always know what's at home ("do I have taco shells?"), track expiration dates, add items from receipts/photos/video, and reconcile the database against the physical pantry. Built in Cowork mode.
 
-**Long-term direction:** evolve into a public, multi-user app (family households share lists; magic-link auth; operator-paid scanning with per-user limits). Full design + phased roadmap in `PUBLIC-APP-PLAN.md`. The current app is "Phase 0" (single-user, permissive RLS) — do not assume multi-tenant auth exists yet.
+**Long-term direction:** evolve into a public, multi-user app (family households share lists; magic-link auth; operator-paid scanning with per-user limits). Full design + phased roadmap in `PUBLIC-APP-PLAN.md`. The app is now in **Phase 1** (Accounts & lockdown) on the `phase-1` git branch — Supabase Auth is wired in, RLS is per-user/household, and the `place` text column is being migrated to a proper `list_id` FK.
 
 ## The live product
 
 A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supabase**, deployed on **GitHub Pages** at **https://pantry.beltedgator.com**.
 
 - **Repo:** github.com/beltjustin/Inventory — GitHub Pages serves the `/docs` folder; custom domain via CNAME `pantry` → `beltjustin.github.io`.
-- **Supabase project ref:** `kohszfgowmmmvaxryjmj`. Tables `items` and `used_log` (Postgres). RLS is ON with permissive `using(true)` policies — single-user personal app, anon key does read/write.
-- **Vision:** Supabase Edge Function `scan` (Deno/TS) calls the Anthropic Claude API (`claude-sonnet-4-6`) to parse receipts and reconcile pantry photos/video frames. The `ANTHROPIC_API_KEY` is a **Supabase secret**, never in the client.
-- **Automation:** a scheduled task emails Justin a weekly expiration digest.
+- **Supabase project ref:** `kohszfgowmmmvaxryjmj`. Tables: `items`, `used_log`, `profiles`, `households`, `household_members`, `lists`. RLS is per-user/household via `is_member()` helper (Phase 1 schema). A `list_id is null` fallback in items/used_log policies allows access to legacy rows during migration.
+- **Auth:** Supabase magic-link (passwordless email). The app gates on login; first login auto-migrates `place` strings to `lists` rows.
+- **Vision:** Supabase Edge Function `scan` (Deno/TS) requires a valid auth session (Phase 1+) and calls the Anthropic Claude API (`claude-sonnet-4-6`). The `ANTHROPIC_API_KEY` is a **Supabase secret**, never in the client.
+- **Automation:** weekly expiration email digest is disabled (will be re-enabled once the scheduled task reads from Supabase instead of xlsx).
 
 ## Files
 
 - `docs/` — the deployed app:
   - `index.html`, `app.js`, `config.js` (Supabase URL + public anon key), `manifest.json`, `sw.js`, `icons/`
   - `supabase/schema.sql`, `supabase/seed.sql`, `supabase/migrate-places.sql`
+  - `supabase/phase1-schema.sql` — Phase 1 DB additions (profiles, households, lists, new RLS)
+  - `supabase/phase1-migrate.sql` — one-time data migration script (run after first login)
   - `supabase/functions/scan/index.ts` — vision Edge Function
   - `DEPLOY-GUIDE.md`, `DEPLOY-GitHub-Pages.md`, `SCAN-SETUP.md`
 - `PUBLIC-APP-PLAN.md` — architecture + phased roadmap for the public multi-user version.

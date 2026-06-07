@@ -1,7 +1,10 @@
 // Supabase Edge Function: "scan"
+// Phase 1: requires a valid authenticated user session.
 // Turns a receipt or pantry photo into structured items using Claude vision.
 // The Anthropic API key lives here as a secret (ANTHROPIC_API_KEY) and is never
 // exposed to the browser. Deploy this and set the secret — see SCAN-SETUP.md.
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MODEL = "claude-sonnet-4-6"; // accuracy. For lower cost use "claude-haiku-4-5-20251001".
 const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
@@ -55,6 +58,27 @@ function reconcilePrompt(today: string, inventory: unknown): string {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "Use POST" }, 405);
+
+  // ── Phase 1: require an authenticated user session ──────────────────────────
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const authHeader = req.headers.get("Authorization");
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return json({ error: "Authentication required" }, 401);
+  }
+
+  if (supabaseUrl && supabaseAnonKey) {
+    // Verify the token is a real user session (not just the anon key)
+    const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) {
+      return json({ error: "Authentication required — sign in first" }, 401);
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) return json({ error: "Server missing ANTHROPIC_API_KEY secret" }, 500);
