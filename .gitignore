@@ -1,0 +1,13 @@
+# --- Keep private pantry data OUT of this public GitHub Pages repo ---
+# These stay on your computer only and are never pushed.
+pics/
+*.xlsx
+*.py
+pantry_dashboard.html
+HOW-IT-WORKS.md
+
+# OneDrive / Windows noise
+desktop.ini
+**/desktop.ini
+Thumbs.db
+.DS_Store
