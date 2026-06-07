@@ -17,9 +17,11 @@ A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supa
 
 - `docs/` — the deployed app:
   - `index.html`, `app.js`, `config.js` (Supabase URL + public anon key), `manifest.json`, `sw.js`, `icons/`
-  - `supabase/schema.sql`, `supabase/seed.sql`
+  - `supabase/schema.sql`, `supabase/seed.sql`, `supabase/migrate-places.sql`
   - `supabase/functions/scan/index.ts` — vision Edge Function
   - `DEPLOY-GUIDE.md`, `DEPLOY-GitHub-Pages.md`, `SCAN-SETUP.md`
+- `PUBLIC-APP-PLAN.md` — architecture + phased roadmap for the public multi-user version.
+- `GO-LIVE-CHECKLIST.md` — ordered steps to deploy & test Phase 0.
 - `pantry_inventory.xlsx` — original spreadsheet source-of-truth (legacy; the app DB is now primary). Tabs: Inventory, Used Log.
 - `pantry_dashboard.html` + `build_dashboard.py` — legacy static dashboard generated from the xlsx.
 - `HOW-IT-WORKS.md` — user-facing workflow notes.
@@ -37,7 +39,7 @@ A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supa
 ## Conventions & gotchas
 
 - **Never re-run `docs/supabase/seed.sql`.** It has no unique key, so re-running duplicates every row. Dedup: `delete from items a using items b where a.id>b.id and a.item=b.item and coalesce(a.location,'')=coalesce(b.location,'');`
-- **Bump `CACHE` in `docs/sw.js`** (currently `pantry-v3`) whenever front-end files change, so installed PWAs pick up the update.
+- **Bump `CACHE` in `docs/sw.js`** (currently `pantry-v4`) whenever front-end files change, so installed PWAs pick up the update.
 - The **anon key in `config.js` is public by design** (safe in-browser). The Anthropic key is NOT in the repo — it's a Supabase secret.
 - **Private data stays out of the public repo** via `.gitignore` (`pics/`, `*.xlsx`, `*.py`, `pantry_dashboard.html`, `HOW-IT-WORKS.md`).
 - **Desktop browser-extension bug:** a Chrome extension rewrites Supabase requests and breaks the app (PGRST125 "Invalid path specified in request URL"). It works in **incognito** and on **phone**. If a DB/scan call fails only on desktop, suspect an extension and whitelist the site.
