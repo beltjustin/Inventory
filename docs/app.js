@@ -242,24 +242,68 @@
   }
 
   /* ---------- scan / reconcile ---------- */
+  var MAX_FRAMES = 8;
   function startScan(mode) { pendingMode = mode; closeMenu(); $("scanFile").value = ""; $("scanFile").click(); }
   $("scanFile").addEventListener("change", function () {
-    var f = this.files && this.files[0]; if (!f || !pendingMode) return;
+    var files = this.files ? Array.prototype.slice.call(this.files) : [];
+    if (!files.length || !pendingMode) return;
     var mode = pendingMode; pendingMode = null;
     openScan(mode === "receipt" ? "Scan receipt" : "Reconcile shelf");
-    scanSpinner(mode === "receipt" ? "Reading your receipt…" : "Looking at your shelf…");
-    compress(f, 1100, function (dataUrl) {
-      callScan(mode, dataUrl, function (err, res) {
+    scanSpinner(mode === "receipt" ? "Reading your receipt…" : "Pulling frames & looking…");
+    collectImages(files, function (images) {
+      if (!images.length) { scanError("Couldn't read that file. Try one or more photos, or a short video."); return; }
+      if (images.length > MAX_FRAMES) images = images.slice(0, MAX_FRAMES);
+      scanSpinner("Analyzing " + images.length + " image" + (images.length > 1 ? "s" : "") + "…");
+      callScan(mode, images, function (err, res) {
         if (err) { scanError("Couldn't reach the scanner. Is the Edge Function deployed? (see SCAN-SETUP.md) " + err.message); return; }
         if (!res.ok || (res.j && res.j.error)) { scanError(scanErrMsg(res.j)); return; }
         if (mode === "receipt") reviewReceipt(res.j); else reviewReconcile(res.j);
       });
     });
   });
-  function callScan(mode, image, cb) {
+  // Turn the selected files (photos and/or a video) into a list of base64 images.
+  function collectImages(files, done) {
+    var out = [], i = 0;
+    (function next() {
+      if (i >= files.length || out.length >= MAX_FRAMES) { done(out); return; }
+      var f = files[i++];
+      if (f.type && f.type.indexOf("video") === 0) {
+        extractFrames(f, 5, function (frames) { out = out.concat(frames); next(); });
+      } else if (f.type && f.type.indexOf("image") === 0) {
+        compress(f, 1100, function (d) { out.push(d); next(); });
+      } else { next(); }
+    })();
+  }
+  // Grab `count` evenly-spaced frames from a video, client-side.
+  function extractFrames(file, count, cb) {
+    var url = URL.createObjectURL(file), v = document.createElement("video"), frames = [], done = false;
+    v.muted = true; v.playsInline = true; v.preload = "auto";
+    function finish() { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch (e) {} cb(frames); }
+    v.addEventListener("error", finish);
+    v.addEventListener("loadedmetadata", function () {
+      var dur = v.duration;
+      if (!isFinite(dur) || dur <= 0) { finish(); return; }
+      var times = [], i; for (i = 1; i <= count; i++) times.push(dur * i / (count + 1));
+      var idx = 0;
+      function step() { if (idx >= times.length) { finish(); return; } v.currentTime = times[idx]; }
+      v.addEventListener("seeked", function () {
+        var max = 1000, w = v.videoWidth, h = v.videoHeight;
+        if (w && h) {
+          if (w > h && w > max) { h = h * max / w; w = max; } else if (h > max) { w = w * max / h; h = max; }
+          var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+          cv.getContext("2d").drawImage(v, 0, 0, w, h);
+          frames.push(cv.toDataURL("image/jpeg", 0.6));
+        }
+        idx++; step();
+      });
+      step();
+    });
+    v.src = url;
+  }
+  function callScan(mode, images, cb) {
     if (!configured) { cb(new Error("Not configured.")); return; }
     var url = SBURL + "/functions/v1/scan";
-    var body = { mode: mode, image: image };
+    var body = { mode: mode, images: Array.isArray(images) ? images : [images] };
     if (mode === "reconcile") body.inventory = items.map(function (x) {
       return { id: x.id, item: x.item, category: x.category, quantity: x.quantity, unit: x.unit, location: x.location, expiration: x.expiration };
     });

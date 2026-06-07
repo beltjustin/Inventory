@@ -63,28 +63,35 @@ Deno.serve(async (req: Request) => {
   try { payload = await req.json(); } catch { return json({ error: "Invalid JSON body" }, 400); }
 
   const mode = payload.mode === "reconcile" ? "reconcile" : "receipt";
-  let image: string = payload.image || "";
-  if (!image) return json({ error: "Missing image" }, 400);
 
-  // Accept full data URLs or raw base64; derive media type.
-  let mediaType = "image/jpeg";
-  const m = image.match(/^data:(image\/[a-zA-Z+]+);base64,(.*)$/s);
-  if (m) { mediaType = m[1]; image = m[2]; }
+  // Accept either a single `image` or an array of `images` (video frames + photos).
+  let imgs: string[] = Array.isArray(payload.images) ? payload.images
+    : (payload.image ? [payload.image] : []);
+  imgs = imgs.filter(function (s) { return typeof s === "string" && s.length > 0; }).slice(0, 10);
+  if (!imgs.length) return json({ error: "Missing image(s)" }, 400);
+
+  // Build a Claude image block from each (full data URL or raw base64).
+  const imageBlocks = imgs.map(function (img: string) {
+    let mediaType = "image/jpeg", data = img;
+    const m = img.match(/^data:(image\/[a-zA-Z+]+);base64,(.*)$/s);
+    if (m) { mediaType = m[1]; data = m[2]; }
+    return { type: "image", source: { type: "base64", media_type: mediaType, data: data } };
+  });
 
   const today = new Date().toISOString().slice(0, 10);
   const prompt = mode === "reconcile"
     ? reconcilePrompt(today, payload.inventory || [])
     : receiptPrompt(today);
+  const note = imageBlocks.length > 1
+    ? "\nThe " + imageBlocks.length + " images are different views/frames of the same pantry — combine them into one result and do not double-count the same physical item seen in multiple frames."
+    : "";
 
   const body = {
     model: MODEL,
     max_tokens: 4096,
     messages: [{
       role: "user",
-      content: [
-        { type: "image", source: { type: "base64", media_type: mediaType, data: image } },
-        { type: "text", text: prompt },
-      ],
+      content: imageBlocks.concat([{ type: "text", text: prompt + note } as any]),
     }],
   };
 
