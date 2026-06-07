@@ -437,8 +437,10 @@
   }
   function renderList() {
     var c = $("fcat").value, s = $("fstatus").value;
+    var q = ($("q").value || "").trim().toLowerCase();
     var rows = view.filter(function (x) {
-      return (!c || x.category === c) && (!locFilter || x.location === locFilter) && (!s || x.status === s);
+      return (!c || x.category === c) && (!locFilter || x.location === locFilter) && (!s || x.status === s) &&
+        (!q || (x.item || "").toLowerCase().indexOf(q) >= 0 || (x.category || "").toLowerCase().indexOf(q) >= 0);
     });
     if (tab === "expiring") rows = rows.filter(function (x) { var d = daysLeft(x.expiration); return d !== null && d < 30; });
     rows.sort(function (a, b) {
@@ -467,7 +469,7 @@
   /* ---- search ---- */
   $("q").addEventListener("input", function () {
     var t = this.value.trim().toLowerCase(), a = $("answer");
-    if (!t) { a.innerHTML = ""; return; }
+    if (!t) { a.innerHTML = ""; renderList(); return; }
     var m = view.filter(function (x) {
       return (x.item || "").toLowerCase().indexOf(t) >= 0 || (x.category || "").toLowerCase().indexOf(t) >= 0;
     });
@@ -478,6 +480,7 @@
     } else {
       a.innerHTML = '<span class="havent">✗ No</span> — "' + esc(this.value.trim()) + '" isn\'t in your pantry.';
     }
+    renderList();
   });
 
   /* ---- list actions ---- */
