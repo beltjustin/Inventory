@@ -1,5 +1,5 @@
 // Simple app-shell cache so the app opens offline (data still needs network).
-const CACHE = 'pantry-v7';
+const CACHE = 'pantry-v8';
 const SHELL = ['./','./index.html','./app.js','./config.js','./manifest.json',
                './icons/icon-192.png','./icons/icon-512.png'];
 self.addEventListener('install', e => {

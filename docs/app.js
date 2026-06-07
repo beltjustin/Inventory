@@ -599,7 +599,9 @@
   });
 
   /* ---- image compression ---- */
-  function compress(file, max, cb) {
+  function compress(file, max, qualityOrCb, cbOrUndef) {
+    var quality = (typeof qualityOrCb === "number") ? qualityOrCb : 0.7;
+    var cb = (typeof qualityOrCb === "function") ? qualityOrCb : cbOrUndef;
     var reader = new FileReader();
     reader.onload = function (ev) {
       var img = new Image();
@@ -608,7 +610,7 @@
         if (w > h && w > max) { h = h * max / w; w = max; } else if (h > max) { w = w * max / h; h = max; }
         var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
         cv.getContext("2d").drawImage(img, 0, 0, w, h);
-        cb(cv.toDataURL("image/jpeg", 0.7));
+        cb(cv.toDataURL("image/jpeg", quality));
       };
       img.src = ev.target.result;
     };
@@ -616,7 +618,7 @@
   }
 
   /* ---- scan / reconcile ---- */
-  var MAX_FRAMES = 8;
+  var MAX_FRAMES = 5;
   var staged = [];
   function startScan(mode) {
     pendingMode = mode; staged = [];
@@ -662,7 +664,15 @@
     var mode = pendingMode;
     scanSpinner("Analyzing " + staged.length + " image" + (staged.length > 1 ? "s" : "") + "…");
     callScan(mode, staged.slice(), function (err, res) {
-      if (err) { scanError("Couldn't reach the scanner: " + esc(err.message)); return; }
+      if (err) {
+        var msg = err.message || String(err);
+        if (msg.toLowerCase().indexOf("fetch") !== -1 || msg.toLowerCase().indexOf("network") !== -1) {
+          scanError("Upload failed — the photos may be too large or the connection timed out. Try again with fewer photos (1–3).");
+        } else {
+          scanError("Couldn't reach the scanner: " + esc(msg));
+        }
+        return;
+      }
       if (!res.ok || (res.j && res.j.error)) { scanError(scanErrMsg(res.j)); return; }
       if (mode === "receipt") reviewReceipt(res.j); else reviewReconcile(res.j);
     });
@@ -675,7 +685,7 @@
       if (f.type && f.type.indexOf("video") === 0) {
         extractFrames(f, 5, function (frames) { out = out.concat(frames); next(); });
       } else if (f.type && f.type.indexOf("image") === 0) {
-        compress(f, 1100, function (d) { out.push(d); next(); });
+        compress(f, 850, 0.6, function (d) { out.push(d); next(); });
       } else { next(); }
     })();
   }
