@@ -468,6 +468,7 @@
 
   /* ---- search ---- */
   $("q").addEventListener("input", function () {
+    $("qclear").style.display = this.value ? "block" : "none";
     var t = this.value.trim().toLowerCase(), a = $("answer");
     if (!t) { a.innerHTML = ""; renderList(); return; }
     var m = view.filter(function (x) {
@@ -481,6 +482,10 @@
       a.innerHTML = '<span class="havent">✗ No</span> — "' + esc(this.value.trim()) + '" isn\'t in your pantry.';
     }
     renderList();
+  });
+
+  $("qclear").addEventListener("click", function () {
+    $("q").value = ""; $("answer").innerHTML = ""; this.style.display = "none"; $("q").focus(); renderList();
   });
 
   /* ---- list actions ---- */
