@@ -628,20 +628,23 @@
   }
   function renderStaging() {
     var noun = pendingMode === "receipt" ? "receipt" : "pantry";
+    var atMax = staged.length >= MAX_FRAMES;
     var head = staged.length
       ? '<div class="stage">' + staged.map(function (d, i) {
           return '<div class="sthumb"><img src="' + d + '"><button class="srm" data-rm="' + i + '">✕</button></div>';
-        }).join("") + "</div>"
-      : '<p style="color:var(--muted);font-size:13px;margin:0 0 4px">Add one or more photos' +
+        }).join("") + "</div>" +
+        '<p style="color:var(--muted);font-size:12px;margin:4px 0 0">' + staged.length + " / " + MAX_FRAMES + " photos" + (atMax ? " (max)" : "") + "</p>"
+      : '<p style="color:var(--muted);font-size:13px;margin:0 0 4px">Add up to ' + MAX_FRAMES + ' photos' +
         (pendingMode === "receipt" ? "" : " (or a short video)") +
-        " of your " + noun + ". Snap several shelves, then analyze them together.</p>";
+        " of your " + noun + ".</p>";
     var goLabel = staged.length ? "Analyze " + staged.length + " image" + (staged.length > 1 ? "s" : "") : "Analyze";
-    $("scanBody").innerHTML = head +
+    var addBtn = atMax ? "" :
       '<button class="btn ghost" id="stageAdd" style="margin-top:12px">➕ Add ' +
-      (staged.length ? "more" : "photos") + (pendingMode === "receipt" ? "" : " / video") + "</button>" +
+      (staged.length ? "more" : "photos") + (pendingMode === "receipt" ? "" : " / video") + "</button>";
+    $("scanBody").innerHTML = head + addBtn +
       '<div class="savebtns"><button class="btn ghost" id="scanCancel">Cancel</button>' +
       '<button class="btn primary" id="stageGo"' + (staged.length ? "" : " disabled") + ">" + goLabel + "</button></div>";
-    $("stageAdd").onclick = function () { $("scanFile").click(); };
+    if (!atMax) $("stageAdd").onclick = function () { $("scanFile").click(); };
     $("scanCancel").onclick = closeScan;
     if (staged.length) $("stageGo").onclick = runAnalyze;
     Array.prototype.forEach.call(document.querySelectorAll("#scanBody [data-rm]"), function (b) {
@@ -652,10 +655,15 @@
     var files = this.files ? Array.prototype.slice.call(this.files) : [];
     this.value = "";
     if (!files.length || !pendingMode) return;
+    var slots = MAX_FRAMES - staged.length;
+    if (slots <= 0) { alert("Maximum " + MAX_FRAMES + " photos already staged."); return; }
+    if (files.length > slots) {
+      alert("You selected " + files.length + " photos but only " + slots + " slot" + (slots > 1 ? "s" : "") + " remain" + (slots === 1 ? "s" : "") + " (max " + MAX_FRAMES + " total). Only the first " + slots + " will be added.");
+      files = files.slice(0, slots);
+    }
     scanSpinner("Processing photos…");
     collectImages(files, function (imgs) {
       staged = staged.concat(imgs);
-      if (staged.length > MAX_FRAMES) staged = staged.slice(0, MAX_FRAMES);
       renderStaging();
     });
   });
