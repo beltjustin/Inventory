@@ -2,6 +2,8 @@
 
 Personal pantry inventory system for Justin. Goal: always know what's at home ("do I have taco shells?"), track expiration dates, add items from receipts/photos/video, and reconcile the database against the physical pantry. Built in Cowork mode.
 
+**Long-term direction:** evolve into a public, multi-user app (family households share lists; magic-link auth; operator-paid scanning with per-user limits). Full design + phased roadmap in `PUBLIC-APP-PLAN.md`. The current app is "Phase 0" (single-user, permissive RLS) — do not assume multi-tenant auth exists yet.
+
 ## The live product
 
 A vanilla-JS **PWA** (no build step, installable, mobile-first) backed by **Supabase**, deployed on **GitHub Pages** at **https://pantry.beltedgator.com**.
